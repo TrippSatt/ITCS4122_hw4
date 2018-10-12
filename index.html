@@ -1,255 +1,286 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Bar Chart D3</title>
-        <script src="https://d3js.org/d3.v5.min.js"></script>
-
-        <style type="text/css">
+  <head>
+      <title>Bar Chart D3</title>
+      <script src="https://d3js.org/d3.v5.min.js"></script>
+      <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+      <script src="https://d3js.org/topojson.v2.min.js"></script>
+      <!-- <script src="http://d3js.org/topojson.v2.min.js"></script>
+      <script src="https://unpkg.com/topojson-client@3"></script> -->
+      <style type="text/css">
+        body{
+          margin_bar: 0;
+        }
         svg {
-          font: 10px sans-serif;
-        }
-        svg .myrect_tree:hover {
-            fill: red;
-        }
-        svg .text {
-            fill: black;
-        }
+          border: 1px solid rgb(0, 0, 0)
+        }	
         svg .myrect {
-            fill: steelblue;
+            fill: red;
             stroke-width: 0px;
         }
         svg .myrect:hover {
-            fill: red;
+            fill: black;
         }
-        </style>
-        
-        <script type="text/javascript">
-            // global variables
-            var myEntireData;
-            var myData_tree;
-            var myData_bar;
-            var margin_bar = {top: 10, right: 10, bottom: 30, left: 100};
-            var svgWidth_bar = 800 - margin_bar.left - margin_bar.right;
-            var svgHeight_bar = 300 - margin_bar.top - margin_bar.bottom;
-            var margin_tree = {top: 10, right: 10, bottom: 30, left: 100};
-            var svgWidth_tree = 800 - margin_tree.left - margin_tree.right;
-            var svgHeight_tree = 400 - margin_tree.top - margin_tree.bottom;
-            function loadData()
-            {
-              d3.csv("https://raw.githubusercontent.com/TrippSatt/ITCS4122_hw4/master/losses2015_transformed.csv")
-                .then(function(data)
+
+        .all-states {
+          fill: none;
+        }
+
+        .state:hover {
+          fill: black;
+        }
+
+        .state-border {
+          fill: none;
+          stroke: #fff;
+          stroke-linejoin: round;
+        }
+      </style>
+  </head>
+  <body>
+    <div id='container'>
+      <div id='bar-container'>
+        <svg id='svg-bar'></svg>
+      </div>
+      <div id='chor-container'>
+        <svg id='svg-chor'></svg>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      var myData;
+      var myBar;
+      var myChoropleth;
+      var margin_bar = {top: 10, right: 10, bottom: 40, left: 140};
+      var svgWidth_bar = 960
+      var svgHeight_bar = 600
+      var gWidth_bar = svgWidth_bar - margin_bar.left - margin_bar.right;
+      var gHeight_bar = svgHeight_bar - margin_bar.top - margin_bar.bottom;
+      var margin_chor = {top: 10, right: 10, bottom: 40, left: 140};
+      var svgWidth_chor = 960
+      var svgHeight_chor = 600
+      var gWidth_chor = svgWidth_chor - margin_chor.left - margin_chor.right;
+      var gHeight_chor = svgHeight_chor - margin_chor.top - margin_chor.bottom;
+
+      function importData()
+      {
+        d3.csv("https://raw.githubusercontent.com/TrippSatt/ITCS4122_hw4/master/losses2015_transformed.csv")
+          .then(function(data)
+          {
+            myData = data
+            generateBar(myData, null)   
+            createBar(myBar);
+            generateChor(myData, null)
+            showMap(myChoropleth)
+          }
+        );
+      }
+      
+      function generateBar(masterData, state) {
+        console.log(state + "  State Bar Chart \n")
+
+        if(state === 'all' || state === 'All' || state === null){
+          myBar = d3.nest()
+                      .key(function(d) { return d.Damage_Descp;})
+                      .rollup(function(d) { 
+                        return d3.sum(d, function(g) {return g.Amount; });
+                      })
+                      .entries(masterData)
+                      .sort(function(a, b){ return d3.ascending(a.values, b.values); });
+          myBar.sort(function (a, b) {return a.value - b.value;})
+        }else{
+          if(state < 10){
+            state = state.replace(/^0+(?!\.|$)/, '')   
+          }
+          myBar = d3.nest()
+                      .key(function(d) { return d.Damage_Descp;})
+                      .rollup(function(d) { 
+                        return d3.sum(d, function(g) {return g.Amount; });
+                      })
+                      .entries(masterData.filter(function(d) {return d.State_Code === state;}))
+                      .sort(function(a, b){ return d3.ascending(a.values, b.values); });
+          myBar.sort(function (a, b) {return a.value - b.value;})
+        }              
+      }
+
+      function generateChor(masterData, type) {      
+        if(type === null || type === 'All' || type === 'all'){
+          myChoropleth = d3.nest()
+                      .key(function(d) { return d.State_Code;})
+                      .rollup(function(d) { 
+                        return d3.sum(d, function(g) {return g.Amount; });
+                      })
+                      
+                      .entries(masterData)
+                      .sort(function(a, b){ return d3.ascending(a.values, b.values); });      
+        }
+          else{
+          myChoropleth = d3.nest()
+                      .key(function(d) { return d.State_Code;})
+                      .rollup(function(d) { 
+                        return d3.sum(d, function(g) {return g.Amount; });
+                      })
+                      .entries(masterData.filter(function(d) {return d.Damage_Descp === type;}))              
+        }       
+        myChoropleth.filter(function(d,i) {         
+          return null})     
+      }
+
+      function removeBar(){
+          var svg_g = d3.select("#svg_bar_g")
+          svg_g.remove()
+      }
+
+      function createBar(chartData) {   
+        var svg = d3.select("#svg-bar")
+                    .attr("width", svgWidth_bar)
+                    .attr("height", svgHeight_bar)
+                    .append("g")
+                    .attr("id", "svg_bar_g")
+                    .attr("width", gWidth_bar)
+                    .attr("height", gHeight_bar)
+                    .attr("transform", `translate(${margin_bar.left},${margin_bar.top})`);
+        var yScale = d3.scaleBand()
+                              .domain(chartData.map( function(d) 
+                                { return d.key;
+                                }))
+                              .range([0, gHeight_bar])
+                              .paddingInner(0.15);
+        var xScale = d3.scaleLinear()
+                              .domain([0, d3.max(chartData, function(d) { return (d.value/1000000); })])
+                              .range([0, gWidth_bar]);
+
+        svg.append("g")
+            .attr("transform", "translate(20,0)")
+            .call(d3.axisLeft(yScale));
+        svg.append("g")
+            .attr("transform", "translate("+ (20) +"," + (gHeight_bar) + ")")
+            .call(d3.axisBottom(xScale));
+        svg.selectAll("rect")
+            .data(chartData)
+            .enter()
+            .append("rect")
+            .attr("transform", "translate(20,0)")
+            .attr("x", 0)
+            .attr("y", function(d, i)
               {
-                myEntireData = data;
-                // set dimensions for both svgs
-                d3.select("#svg_bar")
-                            .attr("width", svgWidth_bar + margin_bar.left + margin_bar.right)
-                            .attr("height", svgHeight_bar + margin_bar.top + margin_bar.bottom)
-                            .append("g")
-                            .attr("id", "svg_bar_g_id")
-                            .attr("transform", "translate(" + margin_bar.left + "," + margin_bar.top + ")");
-                d3.select("#svg_tree")
-                            .attr("width", svgWidth_tree + margin_tree.left + margin_tree.right)
-                            .attr("height", svgHeight_tree + margin_tree.top + margin_tree.bottom)
-                            .append("g")
-                            .attr("id", "svg_tree_g_id")
-                            .attr("transform", "translate(" + margin_tree.left + "," + margin_tree.top + ")");
-                generateDataBar(null);
-                createBarChart();
-                generateDataTree(null);
-                createTreeMap();
-              });
-            }
-            function generateDataBar(myCommodity)
-            {
-              if (myCommodity)
+                return yScale(d.key)
+              })
+            .attr("height", function(d, i)
               {
-                myData_bar = d3.nest()
-                            .key(function(d) { return d.Year;})
-                            .rollup(function(d) { 
-                              return d3.sum(d, function(g) {return g.Losses; });
-                            })
-                            .entries(myEntireData.filter(function(d) {return d.Commodity_Name.replace(/ /g, '') == myCommodity;}));
-              } else
+                return yScale.bandwidth();
+              })
+            .attr("width", function(d, i)
               {
-                myData_bar = d3.nest()
-                            .key(function(d) { return d.Year;})
-                            .rollup(function(d) { 
-                              return d3.sum(d, function(g) {return g.Losses; });
-                            })
-                            .entries(myEntireData)             
-              }
-              // datum = { key : Year, value : sum(Losses) }
-            }
-            function generateDataTree(myYear)
-            {
-              if (myYear)
-              {
-                d3.select("#title_tree").text("Year: " + myYear);
-                myData_tree = d3.nest()
-                              .key(function(d) { return d.Commodity_Name.replace(/ /g, '');})
-                              .rollup(function(d) { 
-                                return d3.sum(d, function(g) {return g.Losses; });
-                              })
-                              .entries(myEntireData.filter(function(d) {return d.Year == myYear;}));
-              } else
-              {
-                d3.select("#title_tree").text("Year: All");
-                myData_tree = d3.nest()
-                              .key(function(d) { return d.Commodity_Name.replace(/ /g, '');})
-                              .rollup(function(d) { 
-                                return d3.sum(d, function(g) {return g.Losses; });
-                              }) 
-                              .entries(myEntireData);               
-              }
-              // datum = { key : Commodity_Name, value : sum(Losses) }
-            }
-            function reSortRoot(root,value_key) {
-              //console.log("Calling");
-              for (var key in root) {
-                if (key == "key") {
-                  root.name = root.key;
-                  delete root.key;
-                }
-                if (key == "values") {
-                  root.children = [];
-                  for (item in root.values) {
-                    root.children.push(reSortRoot(root.values[item]));
-                  }
-                  delete root.values;
-                }
-              }
-              return root;
-            }
-            function createBarChart() {
-              var svg = d3.select("#svg_bar_g_id");
-              // generate scales
-              var xScale = d3.scaleBand()
-                                    .domain(myData_bar.map( function(d) 
-                                      { return d.key;
-                                      }))
-                                    .range([0, svgWidth_bar])
-                                    .paddingInner(0.05);
-              var yScale = d3.scaleLinear()
-                                    .domain([0, d3.max(myData_bar, function(d) { return d.value; })])
-                                    .range([svgHeight_bar, 0]);
-              // generate axis
-              svg.append("g")
-                  .attr("transform", "translate(0," + (svgHeight_bar) + ")")
-                  .call(d3.axisBottom(xScale));
-              svg.append("g")
-                  // .attr("transform", "translate(" + 100 + ",0)")
-                  .call(d3.axisLeft(yScale));
-              // generate bars
-              svg.selectAll("rect_bar")
-                  .data(myData_bar)
-                  .enter()
-                  .append("rect")
-                  .attr("x", function(d, i)
-                    {
-                      // console.log( i + " " + xScale(d.key) );
-                      return xScale(d.key);
-                    })
-                  .attr("y", function(d, i)
-                    {
-                      return yScale(d.value);
-                    })
-                  .attr("height", function(d, i)
-                    {
-                      return svgHeight_bar-yScale(d.value);
-                    })
-                  .attr("width", function(d, i)
-                    {
-                      return xScale.bandwidth();
-                    })
-                  .attr("class", "myrect")
+                return xScale(d.value/1000000)
+              })
+            .attr("class", "myrect")
+            .on("mouseover", function(d) {
+              generateChor(myData,d.key)
+              showMap(myChoropleth);
+            })
+            .on("mouseout", function(d) {
+              generateChor(myData,null)
+              showMap(myChoropleth);
+            })
+      }
+      
+      function showMap(myChoropleth){
+        const mapWidth = 960
+        const mapHeight = 600
+
+        var svg = d3.select("#svg-chor")
+            .attr("width",mapWidth)
+            .attr("height",mapHeight);
+
+        var losses = d3.map();
+        myChoropleth.map(function(d,i) { 
+          if(d.key > 10){
+          losses.set(d.key, d.value); 
+          }else{
+            losses.set(("0"+d.key).slice(-2), d.value); 
+          }})
+        var path = d3.geoPath();
+
+        var x = d3.scaleLinear()
+            .domain([11,20])
+            .rangeRound([500, 860]);
+
+        var color = d3.scaleThreshold()
+            .domain(d3.range(12, 20))
+            .range(d3.schemeReds[9]);
+
+        var colorQ = d3.scaleQuantize()
+        .domain(1,10)
+        .range(d3.schemeReds[9]);
+        var g = svg.append("g")
+                .attr("class", "key")
+                .attr("transform", "translate(0,40)");
+
+            g.selectAll("rect")
+            .data(color.range().map(function(d) {
+                d = color.invertExtent(d);
+                if (d[0] == null) d[0] = x.domain()[0];
+                if (d[1] == null) d[1] = x.domain()[1];
+                return d;
+                }))
+            .enter().append("rect")
+                .attr("height", 8)
+                .attr("x", function(d) { return x(d[0]); })
+                .attr("width", function(d) { return x(d[1]) - x(d[0]); })
+                .attr("fill", function(d) { return color(d[0]); });
+
+            g.append("text")
+                .attr("class", "caption")
+                .attr("x", x.range()[0])
+                .attr("y", -6)
+                .attr("fill", "#000")
+                .attr("text-anchor", "start")
+                .attr("font-weight", "bold")
+                .text("Agri Losses 2015");
+            g.call(d3.axisBottom(x)
+                .tickSize(13)
+                .tickFormat(function(x, i) { return i ? x : x + "M"; })
+                .tickValues(color.domain()))
+            .select(".domain")
+                .remove();
+            var promises = [d3.json("https://d3js.org/us-10m.v1.json")] 
+            Promise.all(promises).then(ready)
+            function ready([us]) {
+                svg.append("path")
+                  .attr('stroke',"#000")
+                  .attr("stroke-width", 1)
+                  .attr("class", "country-border")
+                  .attr("d", path(topojson.feature(us, us.objects.nation)));
+                  svg.append("path")
+                  .datum(topojson.mesh(us, us.objects.states, function(a, b) { return a !== b; }))
+                  .attr("class", "state-border")
+                  .attr("d", path);
+                  var state_g = svg.append("g")
+                  state_g.selectAll("path")
+                  .data(topojson.feature(us, us.objects.states).features)
+                  .enter().append("path")
+                  .attr("class","state")
                   .on("mouseover", function(d) {
-                    generateDataTree(d.key);
-                    removeTreeMap();
-                    createTreeMap();
-                  })
+                      console.log("State ID: "+d.id + " Amount: "+d.amount)
+                      removeBar()
+                      generateBar(myData, d.id);
+                      createBar(myBar)
+                        })
                   .on("mouseout", function(d) {
-                    generateDataTree(null);
-                    removeTreeMap();
-                    createTreeMap();
-                  });
+                      removeBar()
+                      generateBar(myData, null);
+                      createBar(myBar)
+                  })
+                  .attr("fill", function(d) { return color((d.amount = losses.get(d.id))/10000000); })
+                  .attr("d", path)
+                  .append("title")
+                  .text(function(d) { return "State ID: "+ d.id + " Amount: " + d.amount ; });
             }
-            function removeTreeMap() {
-              var svg = d3.select("#svg_tree_g_id");
-              svg.selectAll("rect").remove();
-              svg.selectAll("clipPath").remove();
-              svg.selectAll("text").remove();
-            }
-            function createTreeMap() {
-              // generate scale colors
-              var colorScale = d3.scaleOrdinal()
-                                    .domain(myData_tree.map( function(d) 
-                                      { return d.key;
-                                      }))
-                                    .range(d3.schemePaired);
-              // create hierarchical structure
-              // myData is just an array
-              var tmpTree = {};      
-              tmpTree.key = "Data";
-              tmpTree.values = myData_tree;
-              // rename key -> name and add children
-              var myTree = reSortRoot(tmpTree);
-              // generate a true hierarchical structure
-              var root = d3.hierarchy(myTree)
-                    .eachBefore(function(d) { d.data.id = (d.parent ? d.parent.data.id + "." : "") + d.data.name; })
-                    .sum(function(d) { return d.value; })
-                    .sort(function(a, b) { return b.value - a.value; });;
-              // console.log( root )
-              // new treemap layout
-              var treemap = d3.treemap()
-                  .size([svgWidth_tree, svgHeight_tree])
-                  .padding(1)
-                  .round(true);
-              treemap(root);
-              // console.log(root);
-              // add cells
-              var svg = d3.select("#svg_tree_g_id");
-              var cell = svg.selectAll("rect_tree")
-                  .data(root.leaves())
-                  .enter()
-                  .append("rect")
-                  .attr("id", function(d) { return d.data.id; })
-                  .attr("x", function(d) { return d.x0; })
-                  .attr("y", function(d) { return d.y0; })                  
-                  .attr("width", function(d) { return d.x1 - d.x0; })
-                  .attr("height", function(d) { return d.y1 - d.y0; })
-                  .attr("class", "myrect_tree")
-                  .attr("fill", function(d) { return colorScale(d.data.name); });
-              // add text
-              var cell = svg.selectAll("clipPath_tree")
-                  .data(root.leaves())
-                  .enter()
-                  .append("clipPath")
-                  .attr("id", function(d) { return "clip-" + d.data.id; })
-                  .append("use")
-                  .attr("xlink:href", function(d) { return "#" + d.data.id; });
-              var cell = svg.selectAll("text_tree")
-                  .data(root.leaves())
-                  .enter()
-                  .append("text")
-                  .attr("clip-path", function(d) { return "url(#clip-" + d.data.id + ")"; })
-                  .attr("class", "text")
-                  .attr("x", function(d) { return d.x0; })
-                  .attr("y", function(d) { return d.y0+margin_tree.top; })
-                  .text(function(d) { return d.data.name; });
-            }
-            window.onload = loadData;
-        </script>
-
-
-    </head>
-
-
-    <body>
-
-    <table align="center">
-    <tr><td><div id="title_bar" align="center">Commodity: All</div><svg id="svg_bar"></svg></td></tr>
-    <tr><td><div id="title_tree" align="center">Year: All</div><svg id="svg_tree"></svg></td></tr>
-    </table>
-
-    </body>
+        }
+      
+      window.onload = importData;
+  </script>
+  </body>
 </html>
+
