@@ -175,14 +175,6 @@
                 return xScale(d.value/1000000)
               })
             .attr("class", "myrect")
-            .on("mouseover", function(d) {
-              generateChor(myData,d.key)
-              showMap(myChoropleth);
-            })
-            .on("mouseout", function(d) {
-              generateChor(myData,null)
-              showMap(myChoropleth);
-            })
       }
       
       function showMap(myChoropleth){
